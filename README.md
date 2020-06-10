@@ -1,6 +1,6 @@
 # alexa-gateway
 
-Alexa gateway is an Alexa skill enabling certain aspects of the platform to be voice controlled. It is currently oinly working for German users.
+Alexa gateway is an Alexa skill enabling certain aspects of the platform to be voice controlled. It is currently only working for German users.
 
 Start the skill by saying _SENERGY Plattform_.
 
