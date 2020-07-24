@@ -54,7 +54,16 @@ const ProcessIntentHandler = {
 
         const isSpecial = handlerInput.requestEnvelope.request.intent.name === 'SpecialProcess';
 
-        let name = handlerInput.requestEnvelope.request.intent.slots.ProcessName.value
+
+        let name = ''
+        if (handlerInput.requestEnvelope.request.intent.slots.ProcessName.resolutions.resolutionsPerAuthority[0].status.code === 'ER_SUCCESS_MATCH') {
+            name = handlerInput.requestEnvelope.request.intent.slots.ProcessName.resolutions.resolutionsPerAuthority[0].values[0].value.name;
+        } else {
+            name = handlerInput.requestEnvelope.request.intent.slots.ProcessName.value;
+        }
+
+        name = encodeURI(name);
+
         let action = '';
 
         if (isSpecial) {
@@ -122,7 +131,8 @@ const ProcessIntentHandler = {
                                                     );
                                                 }
 
-                                            }).catch(() => {
+                                            }).catch((e) => {
+                                            console.error(e);
                                             let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozess nicht starten';
                                             resolve(handlerInput.responseBuilder
                                                 .speak(text)
@@ -142,7 +152,8 @@ const ProcessIntentHandler = {
                                         );
                                         return
                                 }
-                            }).catch(() => {
+                            }).catch((e) => {
+                            console.error(e);
                             let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozessliste nicht lesen';
                             resolve(handlerInput.responseBuilder
                                 .speak(text)
@@ -195,7 +206,8 @@ const ProcessIntentHandler = {
                                                 );
                                             }
 
-                                        }).catch(() => {
+                                        }).catch((e) => {
+                                        console.error(e);
                                         let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozess nicht stoppen';
                                         resolve(handlerInput.responseBuilder
                                             .speak(text)
@@ -215,7 +227,8 @@ const ProcessIntentHandler = {
                                     );
                                     break;
                             }
-                        }).catch(() => {
+                        }).catch((e) => {
+                        console.error(e);
                         let text = 'Unerwarteter Fehler aufgetreten: Konnte Liste der deployten Prozesse nicht lesen';
                         resolve(handlerInput.responseBuilder
                             .speak(text)
