@@ -78,10 +78,11 @@ const ProcessIntentHandler = {
         switch (action) {
             case 'starte':
                 return new Promise(resolve => {
+                        let start = new Date();
                         superagent.get(SenergyApiUrl + '/api-aggregator/processes?maxResults=3&firstResult=0&nameLike=%25' + name + '%25')
                             .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
                             .then(res => {
-                                console.log('Retrieving deployments, code: ' + res.status);
+                                console.log('Retrieving deployments, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
                                 if (res.status > 299) {
                                     let text0 = 'Laden der Prozesse mit Code ' + res.status + ' fehlgeschlagen.'
                                     resolve(handlerInput.responseBuilder
@@ -107,10 +108,11 @@ const ProcessIntentHandler = {
                                         break;
                                     case 1:
                                         // Start Process
+                                        start = new Date();
                                         superagent.get(SenergyApiUrl + '/process/engine/process-definition/' + res.body[0].definition_id + '/start')
                                             .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
                                             .then(res => {
-                                                console.log('Starting Process, code: ' + res.status);
+                                                console.log('Starting Process, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
                                                 let text = '';
                                                 let title = '';
                                                 if (res.status < 299) {
@@ -166,10 +168,11 @@ const ProcessIntentHandler = {
                 )
             case 'stoppe':
                 return new Promise(resolve => {
+                    let start = new Date();
                     superagent.get(SenergyApiUrl + '/process/engine/history/unfinished/process-instance/processDefinitionNameLike/' + name + '/3/0/startTime/desc')
                         .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
                         .then(res => {
-                            console.log('Retrieving deployed processes, code: ' + res.status);
+                            console.log('Retrieving deployed processes, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
                             switch (res.body.total) {
                                 case 0:
                                     let text0 = 'Unter diesem Namen finde ich leider keinen laufenden Prozess';
@@ -181,10 +184,11 @@ const ProcessIntentHandler = {
                                     );
                                     break;
                                 case 1:
+                                    start = new Date();
                                     superagent.delete(SenergyApiUrl + '/process/engine/process-instance/' + res.body.data[0].id)
                                         .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
                                         .then(res => {
-                                            console.log('Stopping deployed process, code: ' + res.status);
+                                            console.log('Stopping deployed process, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
                                             let text = '';
                                             let title = '';
                                             if (res.status < 299) {
