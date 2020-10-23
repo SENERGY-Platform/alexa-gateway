@@ -1,15 +1,8 @@
 const Alexa = require('ask-sdk-core');
-const superagent = require('superagent');
 
-
-const isLoggedIn = (handlerInput) => {
-    let hasToken = handlerInput.requestEnvelope.context.System.user.accessToken !== undefined;
-    console.log(hasToken ? 'Token provided' : 'No Token provided');
-    return hasToken;
-}
-
-const SenergyApiUrl = 'https://api.senergy.infai.org'
-const imageUrl = 'https://ui.senergy.infai.org/src/img/SENERGY_LOGO-bunt_horizontal_medium_boldBulb130.svg'
+const Helper = require('./helper.js')
+const ProcessHelper = require('./process-helper.js')
+const errorTitle = 'Fehler';
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -17,7 +10,7 @@ const LaunchRequestHandler = {
     },
     handle(handlerInput) {
         console.log('LaunchRequestHandler started')
-        if (!isLoggedIn(handlerInput)) {
+        if (!Helper.isLoggedIn(handlerInput)) {
             const text = 'Bitte melde dich zuerst mit deinem SENERGY Account an.'
             return handlerInput.responseBuilder
                 .speak(text)
@@ -25,13 +18,7 @@ const LaunchRequestHandler = {
                 .withLinkAccountCard()
                 .getResponse()
         }
-        const speechText = 'Wilkommen bei SENERGY';
-        return handlerInput.responseBuilder
-            .speak(speechText)
-            .reprompt(speechText)
-            .withStandardCard('Wilkommen', speechText, imageUrl)
-            .getResponse();
-
+        return Helper.createStandardResponse(handlerInput, 'Willkommen', 'Wilkommen bei SENERGY');
     }
 };
 
@@ -43,7 +30,7 @@ const ProcessIntentHandler = {
     },
     handle(handlerInput) {
         console.log('ProcessIntentHandler started')
-        if (!isLoggedIn(handlerInput)) {
+        if (!Helper.isLoggedIn(handlerInput)) {
             const text = 'Bitte melde dich zuerst mit deinem SENERGY Account an.'
             return handlerInput.responseBuilder
                 .speak(text)
@@ -54,7 +41,6 @@ const ProcessIntentHandler = {
 
         const isSpecial = handlerInput.requestEnvelope.request.intent.name === 'SpecialProcess';
 
-
         let name = ''
         if (handlerInput.requestEnvelope.request.intent.slots.ProcessName.resolutions.resolutionsPerAuthority[0].status.code === 'ER_SUCCESS_MATCH') {
             name = handlerInput.requestEnvelope.request.intent.slots.ProcessName.resolutions.resolutionsPerAuthority[0].values[0].value.name;
@@ -63,9 +49,7 @@ const ProcessIntentHandler = {
         }
 
         name = encodeURI(name);
-
         let action = '';
-
         if (isSpecial) {
             const specialAction = handlerInput.requestEnvelope.request.intent.slots.SpecialAction.resolutions.resolutionsPerAuthority[0].values[0].value.name;
             name = name + '_' + specialAction;
@@ -78,177 +62,57 @@ const ProcessIntentHandler = {
         switch (action) {
             case 'starte':
                 return new Promise(resolve => {
-                        let start = new Date();
-                        superagent.get(SenergyApiUrl + '/api-aggregator/processes?maxResults=3&firstResult=0&nameLike=%25' + name + '%25')
-                            .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
-                            .then(res => {
-                                console.log('Retrieving deployments, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
-                                if (res.status > 299) {
-                                    let text0 = 'Laden der Prozesse mit Code ' + res.status + ' fehlgeschlagen.'
-                                    resolve(handlerInput.responseBuilder
-                                        .speak(text0)
-                                        .reprompt(text0)
-                                        .withStandardCard('Fehler', text0, imageUrl)
-                                        .getResponse()
-                                    );
-                                }
-                                if (res.body == null) {
-                                    res.body = [];
-                                }
-                                console.log('found ' + res.body.length + ' processes')
-                                switch (res.body.length) {
-                                    case 0:
-                                        let text0 = 'Unter diesem Namen finde ich leider kein Deployment';
-                                        resolve(handlerInput.responseBuilder
-                                            .speak(text0)
-                                            .reprompt(text0)
-                                            .withStandardCard('Fehler', text0, imageUrl)
-                                            .getResponse()
-                                        );
-                                        break;
-                                    case 1:
-                                        // Start Process
-                                        start = new Date();
-                                        superagent.get(SenergyApiUrl + '/process/engine/process-definition/' + res.body[0].definition_id + '/start')
-                                            .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
-                                            .then(res => {
-                                                console.log('Starting Process, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
-                                                let text = '';
-                                                let title = '';
-                                                if (res.status < 299) {
-                                                    text = 'Ich habe den Prozess gestartet';
-                                                    title = 'Prozess gestartet'
-                                                    resolve(handlerInput.responseBuilder
-                                                        .speak(text)
-                                                        .withStandardCard(title, text, imageUrl)
-                                                        .getResponse()
-                                                    );
-                                                } else {
-                                                    text = 'Prozess konnte nicht gestartet werden. Code: ' + res.status;
-                                                    title = 'Fehler';
-                                                    resolve(handlerInput.responseBuilder
-                                                        .speak(text)
-                                                        .withStandardCard(title, text, imageUrl)
-                                                        .getResponse()
-                                                    );
-                                                }
-
-                                            }).catch((e) => {
-                                            console.error(e);
-                                            let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozess nicht starten';
-                                            resolve(handlerInput.responseBuilder
-                                                .speak(text)
-                                                .reprompt(text)
-                                                .withStandardCard('Fehler', text, imageUrl)
-                                                .getResponse()
-                                            );
-                                        });
-                                        break;
-                                    default:
-                                        let text = 'Unter diesem Namen finde ich mehrere Deployments';
-                                        resolve(handlerInput.responseBuilder
-                                            .speak(text)
-                                            .reprompt(text)
-                                            .withStandardCard('Fehler', text, imageUrl)
-                                            .getResponse()
-                                        );
-                                        return
-                                }
-                            }).catch((e) => {
-                            console.error(e);
-                            let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozessliste nicht lesen';
-                            resolve(handlerInput.responseBuilder
-                                .speak(text)
-                                .reprompt(text)
-                                .withStandardCard('Fehler', text, imageUrl)
-                                .getResponse()
-                            );
+                        ProcessHelper.findProcessByName(name, handlerInput.requestEnvelope.context.System.user.accessToken, (processes, error) => {
+                            if (error !== null) {
+                                resolve(Helper.createStandardResponse(handlerInput, errorTitle, error))
+                            }
+                            switch (processes.length) {
+                                case 0:
+                                    resolve(Helper.createStandardResponse(handlerInput, errorTitle,  'Unter diesem Namen finde ich leider kein Deployment'))
+                                    break;
+                                case 1:
+                                    ProcessHelper.startProcess(processes[0].definition_id, handlerInput.requestEnvelope.context.System.user.accessToken, (error) => {
+                                        if (error !== null) {
+                                            resolve(Helper.createStandardResponse(handlerInput, errorTitle, error))
+                                        } else {
+                                            resolve(Helper.createStandardResponse(handlerInput,  'Prozess gestartet',  'Ich habe den Prozess gestartet'))
+                                        }
+                                    })
+                                    break;
+                                default:
+                                    resolve(Helper.createStandardResponse(handlerInput, errorTitle, 'Unter diesem Namen finde ich mehrere Deployments'));
+                                    return
+                            }
                         })
                     }
                 )
             case 'stoppe':
                 return new Promise(resolve => {
-                    let start = new Date();
-                    superagent.get(SenergyApiUrl + '/process/engine/history/unfinished/process-instance/processDefinitionNameLike/' + name + '/3/0/startTime/desc')
-                        .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
-                        .then(res => {
-                            console.log('Retrieving deployed processes, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
-                            switch (res.body.total) {
-                                case 0:
-                                    let text0 = 'Unter diesem Namen finde ich leider keinen laufenden Prozess';
-                                    resolve(handlerInput.responseBuilder
-                                        .speak(text0)
-                                        .reprompt(text0)
-                                        .withStandardCard('Fehler', text0, imageUrl)
-                                        .getResponse()
-                                    );
-                                    break;
-                                case 1:
-                                    start = new Date();
-                                    superagent.delete(SenergyApiUrl + '/process/engine/process-instance/' + res.body.data[0].id)
-                                        .set('Authorization', 'Bearer ' + handlerInput.requestEnvelope.context.System.user.accessToken)
-                                        .then(res => {
-                                            console.log('Stopping deployed process, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');
-                                            let text = '';
-                                            let title = '';
-                                            if (res.status < 299) {
-                                                text = 'Ich habe den Prozess gestoppt';
-                                                title = 'Prozess gestoppt'
-                                                resolve(handlerInput.responseBuilder
-                                                    .speak(text)
-                                                    .withStandardCard(title, text, imageUrl)
-                                                    .getResponse()
-                                                );
-                                            } else {
-                                                text = 'Prozess konnte nicht gestoppt werden. Code: ' + res.status;
-                                                title = 'Fehler';
-                                                resolve(handlerInput.responseBuilder
-                                                    .speak(text)
-                                                    .reprompt(text)
-                                                    .withStandardCard(title, text, imageUrl)
-                                                    .getResponse()
-                                                );
-                                            }
-
-                                        }).catch((e) => {
-                                        console.error(e);
-                                        let text = 'Unerwarteter Fehler aufgetreten: Konnte Prozess nicht stoppen';
-                                        resolve(handlerInput.responseBuilder
-                                            .speak(text)
-                                            .reprompt(text)
-                                            .withStandardCard('Fehler', text, imageUrl)
-                                            .getResponse()
-                                        );
-                                    });
-                                    break;
-                                default:
-                                    let text = 'Unter diesem Namen finde ich mehrere laufende Prozesse';
-                                    resolve(handlerInput.responseBuilder
-                                        .speak(text)
-                                        .reprompt(text)
-                                        .withStandardCard('Fehler', text, imageUrl)
-                                        .getResponse()
-                                    );
-                                    break;
-                            }
-                        }).catch((e) => {
-                        console.error(e);
-                        let text = 'Unerwarteter Fehler aufgetreten: Konnte Liste der deployten Prozesse nicht lesen';
-                        resolve(handlerInput.responseBuilder
-                            .speak(text)
-                            .reprompt(text)
-                            .withStandardCard('Fehler', text, imageUrl)
-                            .getResponse()
-                        );
-                    });
+                    ProcessHelper.findRunningProcessByName(name,  handlerInput.requestEnvelope.context.System.user.accessToken, (body, error) => {
+                        if (error !== null) {
+                            resolve(Helper.createStandardResponse(handlerInput, errorTitle, error))
+                        }
+                        switch (body.total) {
+                            case 0:
+                                resolve(Helper.createStandardResponse(handlerInput, errorTitle, 'Unter diesem Namen finde ich leider keinen laufenden Prozess'));
+                                break;
+                            case 1:
+                                ProcessHelper.stopRunningProcess(body.data[0].id, handlerInput.requestEnvelope.context.System.user.accessToken, error => {
+                                    if (error !== null) {
+                                        resolve(Helper.createStandardResponse(handlerInput, errorTitle, error))
+                                    } else {
+                                        resolve(Helper.createStandardResponse(handlerInput,  'Prozess gestoppt', 'Ich habe den Prozess gestoppt'));
+                                    }
+                                });
+                                break;
+                            default:
+                                resolve(Helper.createStandardResponse(handlerInput, errorTitle, 'Unter diesem Namen finde ich mehrere laufende Prozesse'));
+                                break;
+                        }
+                    })
                 });
             default:
-                let text = 'Sorry, diese Aktion kenne ich nicht';
-                return handlerInput.responseBuilder
-                    .speak(text)
-                    .reprompt(text)
-                    .withStandardCard('Fehler', text, imageUrl)
-                    .getResponse();
+                return Helper.createStandardResponse(handlerInput, errorTitle,  'Sorry, diese Aktion kenne ich nicht');
         }
     }
 };
@@ -260,14 +124,7 @@ const HelpIntentHandler = {
     },
     handle(handlerInput) {
         console.log('HelpIntentHandler started')
-
-        const speechText = 'Ich kann Prozesse starten oder stoppen. Sag einfach: Starte Prozess Test! ';
-
-        return handlerInput.responseBuilder
-            .speak(speechText)
-            .reprompt(speechText)
-            .withStandardCard('Hilfe', speechText, imageUrl)
-            .getResponse();
+        return Helper.createStandardResponse(handlerInput, 'Hilfe', 'Ich kann Prozesse starten oder stoppen. Sag einfach: Starte Prozess Test!');
     }
 };
 
@@ -279,13 +136,7 @@ const CancelAndStopIntentHandler = {
     },
     handle(handlerInput) {
         console.log('CancelAndStopIntentHandler started')
-        const speechText = 'Alles klar, bis später!';
-
-        return handlerInput.responseBuilder
-            .speak(speechText)
-            .withStandardCard('Verlassen', speechText, imageUrl)
-            .withShouldEndSession(true)
-            .getResponse();
+        return Helper.createStandardResponse(handlerInput, 'Verlassen', 'Alles klar, bis später!');
     }
 };
 
@@ -295,7 +146,6 @@ const SessionEndedRequestHandler = {
     },
     handle(handlerInput) {
         console.log('SessionEndedRequestHandler started')
-        //any cleanup logic goes here
         return handlerInput.responseBuilder.getResponse();
     }
 };
@@ -306,15 +156,8 @@ const ErrorHandler = {
     },
     handle(handlerInput, error) {
         console.log('ErrorHandler started')
-
         console.log(`Error handled: ${error.message}`);
-        const answer = 'Das hat nicht geklappt. Probiers bitte nochmal'
-
-        return handlerInput.responseBuilder
-            .speak(answer)
-            .reprompt(answer)
-            .withStandardCard('Fehler', answer, imageUrl)
-            .getResponse();
+        return Helper.createStandardResponse(handlerInput, errorTitle, 'Das hat nicht geklappt. Probiers bitte nochmal');
     },
 };
 
