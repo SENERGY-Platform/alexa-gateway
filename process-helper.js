@@ -23,9 +23,13 @@ class ProcessHelper {
         });
     }
 
-    static startProcess(id, token, callback) {
+    static startProcess(id, parameter, token, callback) {
         let start = new Date();
-        superagent.get(SenergyApiUrl + '/process/engine/process-definition/' + id + '/start')
+        const queryParts = [];
+        parameter.forEach((value, key) => {
+            queryParts.push(key + '=' + encodeURIComponent(JSON.stringify(value)));
+        });
+        superagent.get(SenergyApiUrl + '/process/engine/deployment/' + id + '/start?' + queryParts.join('&'))
             .set('Authorization', 'Bearer ' + token)
             .then(res => {
                 console.log('Starting Process, code: ' + res.status + ', took ' + (new Date().getTime() - start.getTime()) + 'ms');

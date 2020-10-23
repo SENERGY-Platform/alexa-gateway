@@ -14,6 +14,13 @@ class Helper {
         console.log(hasToken ? 'Token provided' : 'No Token provided');
         return hasToken;
     }
+
+    static replaceUmlauts(str) {
+        return str.replace(/ä/gi, 'ae')
+            .replace(/ü/gi, 'ue')
+            .replace(/ö/gi, 'oe')
+            .replace(/ß/gi, 'ss')
+    }
 }
 
 module.exports = Helper
