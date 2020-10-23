@@ -65,7 +65,7 @@ const RoomThermostatIntentHandler = {
                             if (error !== null) {
                                 resolve(Helper.createStandardResponse(handlerInput, errorTitle, error))
                             } else {
-                                resolve(Helper.createStandardResponse(handlerInput, 'Heizung eingestellt', 'Okay, Heizung ' + room + ' auf ' + target + ' Grad'));
+                                resolve(Helper.createStandardResponseNoRepromt(handlerInput, 'Heizung eingestellt', 'Okay, Heizung ' + room + ' auf ' + target + ' Grad'));
                             }
                         })
                         break;
